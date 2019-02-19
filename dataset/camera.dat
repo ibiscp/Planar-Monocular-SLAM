@@ -1,0 +1,13 @@
+camera matrix:
+180   0 320
+  0 180 240
+  0   0   1
+cam_transform:
+  0   0   1 0.2
+ -1   0   0   0
+  0  -1   0   0
+  0   0   0   1
+z_near: 0
+z_far:  5
+width:  640
+height: 480
