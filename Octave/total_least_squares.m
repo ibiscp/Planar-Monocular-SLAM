@@ -68,6 +68,20 @@ function [XR, XL, chi_stats_l, num_inliers_l, chi_stats_p, num_inliers_p,chi_sta
   global pose_dim;
   global landmark_dim;
 
+  ##    sum(XR(:))
+  ##    sum(XL(:))
+  ##    sum(Zl(:))
+  ##    sum(landmark_associations(:))
+  ##    sum(Zp(:))
+  ##    sum(projection_associations(:))
+  ##    sum(Zr(:))
+  ##    sum(pose_associations(:))
+  ##    num_poses
+  ##    num_landmarks
+  ##    num_iterations
+  ##    damping
+  ##    kernel_threshold  
+  
   chi_stats_l=zeros(1,num_iterations);
   num_inliers_l=zeros(1,num_iterations);
   chi_stats_p=zeros(1,num_iterations);
@@ -86,13 +100,22 @@ function [XR, XL, chi_stats_l, num_inliers_l, chi_stats_p, num_inliers_p,chi_sta
       [H_landmarks, b_landmarks, chi_, num_inliers_] = linearizeLandmarks(XR, XL, Zl, landmark_associations,num_poses, num_landmarks, kernel_threshold);
       chi_stats_l(iteration)=chi_;
       num_inliers_l(iteration)=num_inliers_;
-      ##      disp("total_least_squares")
-      ##      sum(H_landmarks(:))
-      ##      sum(b_landmarks(:))
+      ##        disp("total_least_squares")
+      ##        sum(H_landmarks(:))
+      ##        sum(b_landmarks(:))
+      ##        sum(chi_(:))
+      ##        sum(num_inliers_(:))
+      ##        pause()
       
       [H_projections, b_projections, chi_, num_inliers_] = linearizeProjections(XR, XL, Zp, projection_associations,num_poses, num_landmarks, kernel_threshold);
       chi_stats_p(iteration)+=chi_;
       num_inliers_p(iteration)=num_inliers_;
+      ##        disp("total_least_squares")
+      ##        sum(H_projections(:))
+      ##        sum(b_projections(:))
+      ##        sum(chi_(:))
+      ##        sum(num_inliers_(:))
+      ##        pause()
     endif;
 
     [H_poses, b_poses, chi_, num_inliers_] = linearizePoses(XR, XL, Zr, pose_associations,num_poses, num_landmarks, kernel_threshold);

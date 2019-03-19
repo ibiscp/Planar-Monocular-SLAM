@@ -21,6 +21,13 @@ function [e,Jr,Jl]=landmarkErrorAndJacobian(Xr,Xl,z)
   iR=Xr(1:3,1:3)';
   it=-iR*Xr(1:3,4);
   
+  ##  disp("landmarkErrorAndJacobian")
+  ##  iR
+  ##  skew(Xl)
+  ##  iR*skew(Xl)
+  ##  
+  ##  pause()
+  
   #prediction
   z_hat=iR*Xl+it;
   e=z_hat-z;
@@ -67,7 +74,9 @@ function [H,b, chi_tot, num_inliers]=linearizeLandmarks(XR, XL, Zl, associations
     ##    sum(e(:))
     ##    sum(Jr(:))
     ##    sum(Jl(:))
-  
+    ##    
+    ##    pause()
+    ##  
     chi=e'*e;
     if (chi>kernel_threshold)
       e*=sqrt(kernel_threshold/chi);
