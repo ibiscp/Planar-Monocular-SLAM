@@ -12,7 +12,9 @@ global cam_transform = [0,  0, 1, 0.2;
                        -1,  0, 0, 0;
                         0, -1, 0, 0;
                         0,  0, 0, 1];
-    
+
+global inv_cam_transform = inv(cam_transform);
+                        
 # image_size
 global image_rows=480;
 global image_cols=640;
@@ -27,13 +29,13 @@ function p_img=projectPoint(Xr,Xl)
   global image_cols;
   global image_rows;
   global K;
-  global cam_transform;
+  global inv_cam_transform;
   global z_near;
   global z_far;
 
   p_img=[-1;-1];
   
-  iXr = inv(cam_transform) * inv(Xr);
+  iXr = inv_cam_transform * inv(Xr);
   pw = iXr(1:3,1:3) * Xl + iXr(1:3,4);
   if (pw(3) < z_near || pw(3) > z_far)
      return;
