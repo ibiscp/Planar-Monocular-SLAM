@@ -11,6 +11,7 @@ import numpy as np
 import matplotlib
 matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
+from total_least_squares_landmarks import landmarkAssociation
 
 projection_dim = 2
 
@@ -77,13 +78,12 @@ with open(datFile, 'r') as file:    #file is the variable
 num_landmarks = len(landmarks)
 
 XL_true = np.zeros([3, num_landmarks])
+land_apperances = np.zeros([10, num_landmarks])
 for i in range(num_landmarks):
     landmark = landmarks[i][1]
     XL_true[:,i] = landmark
+    land_apperances[:, i] = landmarks[i][2]
 
-# fig = plt.figure()
-# ax = fig.gca(projection='3d')
-# ax.scatter(pos_x, pos_y, pos_z)
 
 ################################# OBSERVATIONS #################################
 files = glob.glob("../dataset/meas-*.dat")
@@ -137,7 +137,9 @@ measurement_num = 0
 for pose_num in range(num_poses):
     Xr = XR_true[:,:,pose_num]
     for landmark_observ in range(len(observations[pose_num])):
-        landmark_id = observations[pose_num][landmark_observ][1]
+        ## TODO change landmark_observation
+        # landmark_id = observations[pose_num][landmark_observ][1]
+        landmark_id = landmarkAssociation(observations[pose_num][landmark_observ][3], land_apperances)
         landmark_img = observations[pose_num][landmark_observ][2]
 
         projection_associations[:,measurement_num] = [pose_num, landmark_id]
@@ -187,7 +189,7 @@ XL_guess+=dXl;
 # print(np.sum(Zp))
 # print(np.sum(Zr))
 
-XR, XL, chi_stats_l, num_inliers_l, chi_stats_p, num_inliers_p, chi_stats_r, num_inliers_r, H, b = doTotalLS(np.copy(XR_guess), np.copy(XL_true),
+XR, XL, chi_stats_l, num_inliers_l, chi_stats_p, num_inliers_p, chi_stats_r, num_inliers_r, H, b = doTotalLS(np.copy(XR_guess), np.copy(XL_guess),
 											      Zl, landmark_associations,
 											      Zp, projection_associations,
 											      Zr, pose_associations,

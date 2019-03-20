@@ -4,6 +4,22 @@ from total_least_squares_indices import *
 from geometry_helpers_3d import skew
 import math
 
+# Define landmark id given appearance
+# Input:
+#   appearance: appearance of given landmark
+#   landmarks: list of landmarks appearances
+#   num_landmarks: total number of landmarks
+# Output:
+#   index: index of the landmark
+def landmarkAssociation(appearance, land_appearances):
+
+    observ_appearance = np.asarray(appearance).reshape([-1, 1])
+
+    diff = land_appearances - observ_appearance
+    error = np.linalg.norm(diff, ord=2, axis=0)
+    index = np.argmin(error)
+    return index
+
 # Error and jacobian of a measured landmark
 # Input:
 #   Xr: the robot pose in world frame (4x4 homogeneous matrix)
