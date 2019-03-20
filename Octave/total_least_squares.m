@@ -121,6 +121,11 @@ function [XR, XL, chi_stats_l, num_inliers_l, chi_stats_p, num_inliers_p,chi_sta
     [H_poses, b_poses, chi_, num_inliers_] = linearizePoses(XR, XL, Zr, pose_associations,num_poses, num_landmarks, kernel_threshold);
     chi_stats_r(iteration)+=chi_;
     num_inliers_r(iteration)=num_inliers_;
+##    disp("total_least_squares")
+##    sum(H_poses(:))
+##    sum(b_poses(:))
+##    sum(chi_(:))
+##    sum(num_inliers_(:))
     
     
     H=H_poses;
@@ -138,9 +143,12 @@ function [XR, XL, chi_stats_l, num_inliers_l, chi_stats_p, num_inliers_p,chi_sta
     % of the 1st pose, while solving the system
 
     dx(pose_dim+1:end)=-(H(pose_dim+1:end,pose_dim+1:end)\b(pose_dim+1:end,1));
-    #sum(dx(:))
     [XR, XL]=boxPlus(XR,XL,num_poses, num_landmarks, dx);
-
+    
+    ##    sum(dx(:))    
+    ##    sum(XR(:))
+    ##    sum(XL(:))
+    ##    pause()
 
   endfor
 endfunction

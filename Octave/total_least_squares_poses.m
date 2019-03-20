@@ -41,6 +41,14 @@ function [e,Ji,Jj]=poseErrorAndJacobian(Xi,Xj,Z)
   Z_hat(1:3,1:3)=Ri_transpose*Rj;
   Z_hat(1:3,4)=Ri_transpose*tij;
   e=flattenIsometryByColumns(Z_hat-Z);
+  
+  ##  disp("total_least_squares_poses (poseErrorAndJacobian)")
+  ##  Z_hat(1:3,1:3)
+  ##  Z_hat(1:3,4)
+  ##  Z_hat-Z
+  ##  e
+  ##  pause()
+  
  endfunction;
 
 #linearizes the robot-robot measurements
@@ -78,6 +86,12 @@ function [H,b, chi_tot, num_inliers]=linearizePoses(XR, XL, Zr, associations,num
     Xi=XR(:,:,pose_i_index);
     Xj=XR(:,:,pose_j_index);
     [e,Ji,Jj] = poseErrorAndJacobian(Xi, Xj, Z);
+##    disp("total_least_squares_poses")
+##    sum(e(:))
+##    sum(Ji(:))
+##    sum(Jj(:))
+##    pause()
+  
     chi=e'*Omega*e;
     if (chi>kernel_threshold)
       Omega*=sqrt(kernel_threshold/chi);
@@ -92,17 +106,37 @@ function [H,b, chi_tot, num_inliers]=linearizePoses(XR, XL, Zr, associations,num
     
     H(pose_i_matrix_index:pose_i_matrix_index+pose_dim-1,
       pose_i_matrix_index:pose_i_matrix_index+pose_dim-1)+=Ji'*Omega*Ji;
+##    Ji'*Omega*Ji
+##    pause()
 
     H(pose_i_matrix_index:pose_i_matrix_index+pose_dim-1,
       pose_j_matrix_index:pose_j_matrix_index+pose_dim-1)+=Ji'*Omega*Jj;
+##    Ji'*Omega*Jj
+##    pause()
 
     H(pose_j_matrix_index:pose_j_matrix_index+pose_dim-1,
       pose_i_matrix_index:pose_i_matrix_index+pose_dim-1)+=Jj'*Omega*Ji;
+##    Jj'*Omega*Ji
+##    pause()
 
     H(pose_j_matrix_index:pose_j_matrix_index+pose_dim-1,
       pose_j_matrix_index:pose_j_matrix_index+pose_dim-1)+=Jj'*Omega*Jj;
+##    Jj'*Omega*Jj
+##    pause()
 
     b(pose_i_matrix_index:pose_i_matrix_index+pose_dim-1)+=Ji'*Omega*e;
+##    Ji'*Omega*e
+##    pause()
     b(pose_j_matrix_index:pose_j_matrix_index+pose_dim-1)+=Jj'*Omega*e;
+##    Jj'*Omega*e
+##    pause()
+    
+##    sum(H(:))
+##    sum(b(:))
+##    sum(chi_tot(:))
+##    sum(num_inliers(:))
+##    pause()
+    
+    
   endfor
 endfunction

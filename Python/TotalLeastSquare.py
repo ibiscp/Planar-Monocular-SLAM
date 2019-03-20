@@ -39,16 +39,21 @@ num_poses = len(trajectory)
 # Generate poses homogeneous matrices
 XR_true = np.zeros([4, 4, num_poses])
 XR_guess = np.zeros([4, 4, num_poses])
+traj_true = np.zeros([3, num_poses])
+traj_guess = np.zeros([3, num_poses])
+traj_estimated = np.zeros([3, num_poses])
 for i in range(num_poses):
     # True
     pose = trajectory[i][2]
     u = np.array([pose[0], pose[1], 0, 0, 0, pose[2]])
     XR_true[:,:,i] = v2t(u)
+    traj_true[:,i] = u[0:3]
 
     # Guess
     pose = trajectory[i][1]
     ug = np.array([pose[0], pose[1], 0, 0, 0, pose[2]])
     XR_guess[:,:,i] = v2t(ug)
+    traj_guess[:, i] = ug[0:3]
 
 ################################## LANDMARKS ###################################
 datFile = '../dataset/world.dat'
@@ -182,7 +187,7 @@ XL_guess+=dXl;
 # print(np.sum(Zp))
 # print(np.sum(Zr))
 
-XR, XL, chi_stats_l, num_inliers_l, chi_stats_p, num_inliers_p, chi_stats_r, num_inliers_r, H, b = doTotalLS(np.copy(XR_guess), np.copy(XL_guess),
+XR, XL, chi_stats_l, num_inliers_l, chi_stats_p, num_inliers_p, chi_stats_r, num_inliers_r, H, b = doTotalLS(np.copy(XR_guess), np.copy(XL_true),
 											      Zl, landmark_associations,
 											      Zp, projection_associations,
 											      Zr, pose_associations,
@@ -192,26 +197,57 @@ XR, XL, chi_stats_l, num_inliers_l, chi_stats_p, num_inliers_p, chi_stats_r, num
 											      damping,
 											      kernel_threshold)
 
-# import matplotlib.pyplot as plt
-# plt.plot(chi_stats_p)
-# plt.ylabel('some numbers')
-# plt.show()
+fig = plt.figure(1)
+fig.suptitle("Landmark and poses", fontsize=16)
 
-fig = plt.figure()
+ax1 = fig.add_subplot(221, projection='3d')
+ax1.plot(XL_true[0,:],XL_true[1,:],XL_true[2,:], 'o', mfc='none', color='b')
+ax1.plot(XL_guess[0,:],XL_guess[1,:],XL_guess[2,:], 'x', color='r')
+ax1.set_title("Landmark true and guess values", fontsize=10)
 
-plt.subplot(2, 2, 1, projection='3d')
-plt.plot(XL_true[0,:],XL_true[1,:],XL_true[2,:], 'o', mfc='none', color='b')
-plt.plot(XL_guess[0,:],XL_guess[1,:],XL_guess[2,:], 'x', color='r')
+ax2 = fig.add_subplot(222, projection='3d')
+ax2.plot(XL_true[0,:],XL_true[1,:],XL_true[2,:], 'o', mfc='none', color='b')
+ax2.plot(XL[0,:],XL[1,:],XL[2,:], 'x', color='r')
+ax2.set_title("Landmark true and estimated values", fontsize=10)
 
-plt.subplot(2, 2, 2, projection='3d')
-plt.plot(XL_true[0,:],XL_true[1,:],XL_true[2,:], 'o', mfc='none', color='b')
-plt.plot(XL[0,:],XL[1,:],XL[2,:], 'x', color='r')
+# Estimated trajectory
+for i in range(num_poses):
+    traj_estimated[:,i] = t2v(XR[:,:,i])[0:3]
 
-# plt.subplot(2, 2, 3, projection='3d')
-# plt.plot(XR_true[0,:],XR_true[1,:],XR_true[2,:], 'x', color='b')
-# plt.plot(XR_guess[0,:],XR_guess[1,:],XR_guess[2,:], 'x', color='r')
+ax3 = fig.add_subplot(223, projection='3d')
+ax3.plot(traj_true[0,:],traj_true[1,:],traj_true[2,:], 'o', mfc='none', color='b')
+ax3.plot(traj_guess[0,:],traj_guess[1,:],traj_guess[2,:], 'x', color='r')
+ax3.set_zlim([-0.04,0.04])
+ax3.set_title("Robot true and odometry values", fontsize=10)
 
-#plt.subplot(2, 2, 4)
-#plt.plot(x, y)
+ax4 = fig.add_subplot(224, projection='3d')
+ax4.plot(traj_true[0,:],traj_true[1,:],traj_true[2,:], 'o', mfc='none', color='b')
+ax4.plot(traj_estimated[0,:],traj_estimated[1,:],traj_estimated[2,:], 'x', color='r')
+ax4.set_zlim([-0.04,0.04])
+ax4.set_title("Robot true and estimated values", fontsize=10)
+
+fig = plt.figure(2)
+fig.suptitle("Error and inliners", fontsize=16)
+
+ax1 = fig.add_subplot(321)
+ax1.plot(chi_stats_l)
+ax1.set_title("Chi Landmarks", fontsize=10)
+ax2 = fig.add_subplot(322)
+ax2.plot(num_inliers_l)
+ax2.set_title("Inliers Landmarks", fontsize=10)
+
+ax3 = fig.add_subplot(323)
+ax3.plot(chi_stats_r)
+ax3.set_title("Chi Poses", fontsize=10)
+ax4 = fig.add_subplot(324)
+ax4.plot(num_inliers_r)
+ax4.set_title("Inliers Poses", fontsize=10)
+
+ax5 = fig.add_subplot(325)
+ax5.plot(chi_stats_p)
+ax5.set_title("Chi Projections", fontsize=10)
+ax6 = fig.add_subplot(326)
+ax6.plot(num_inliers_p)
+ax6.set_title("Inliers Projections", fontsize=10)
 
 plt.show()

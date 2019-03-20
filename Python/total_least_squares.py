@@ -107,6 +107,12 @@ def doTotalLS(XR, XL, Zl, landmark_associations, Zp, projection_associations,
         chi_stats_r[iteration] += chi_
         num_inliers_r[iteration] = num_inliers_
 
+        # print('total_least_squares')
+        # print(np.sum(H_poses))
+        # print(np.sum(b_poses))
+        # print(np.sum(chi_))
+        # print(np.sum(num_inliers_))
+
         H = H_poses
         b = b_poses
         if (num_landmarks):
@@ -122,7 +128,9 @@ def doTotalLS(XR, XL, Zl, landmark_associations, Zp, projection_associations,
         # of the 1st pose, while solving the system
 
         dx[pose_dim:] = -np.linalg.solve(H[pose_dim:, pose_dim:], b[pose_dim:,0]).reshape([-1,1])
-        # print(np.sum(dx))
         XR, XL = boxPlus(XR, XL, num_poses, num_landmarks, dx)
+        # print(np.sum(dx))
+        # print(np.sum(XR))
+        # print(np.sum(XL))
 
     return XR, XL, chi_stats_l, num_inliers_l, chi_stats_p, num_inliers_p,chi_stats_r, num_inliers_r, H, b

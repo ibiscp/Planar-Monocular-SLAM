@@ -30,6 +30,19 @@ def v2t(v):
     T[0:3,[3]] = v[0:3].reshape((3, 1))
     return T
 
+# Converts a rotation matrix into a unit normalized quaternion
+def mat2quat(R):
+    qw4 = 2 * math.sqrt(1+R[0,0]+R[1,1]+R[2,2])
+    q  = np.array([(R[2,1]-R[1,2])/qw4, (R[0,2]-R[2,0])/qw4, (R[1,0]-R[0,1])/qw4])
+    return q
+
+# From homogeneous matrix to 6d vector
+def t2v(X):
+    x = np.zeros(6)
+    x[0:3] = X[0:3,3]
+    x[3:6] = mat2quat(X[0:3,0:3])
+    return x
+
 # Calculate skew matrix
 def skew(v):
     S = np.array([[0, -v.item(2), v.item(1)], [v.item(2), 0, -v.item(0)], [-v.item(1), v.item(0), 0]])
@@ -37,7 +50,7 @@ def skew(v):
 
 def flattenIsometryByColumns(T):
     v = np.zeros([12, 1])
-    v[0:9] = np.reshape(T[0:3,0:3], [9, 1])
+    v[0:9] = np.reshape(T[0:3,0:3].transpose(), [9, 1])
     v[9:12] = T[0:3,[3]]
     return v
 
