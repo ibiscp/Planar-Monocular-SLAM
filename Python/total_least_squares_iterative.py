@@ -12,13 +12,12 @@ import matplotlib
 matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
 from total_least_squares_landmarks import landmarkAssociation
-from total_least_squares_projections import triangulate2
 
 projection_dim = 2
 
 damping = 0
 kernel_threshold = 1e3
-num_iterations = 50
+num_iterations = 30
 
 ################################## TRAJECTORY ##################################
 datFile = '../dataset/trajectory.dat'
@@ -115,17 +114,11 @@ for f in files:
                                          image_position, apearance])
     observations.append(landmark_observation)
 
-########################### LANDMARKS TRIANGULATION ############################
-# XL_guess = triangulate2(num_landmarks, num_poses, observations, land_apperances, XR_true)
 
-# apply a perturbation to each landmark
-pert_deviation=1
-XL_guess = np.copy(XL_true)
-dXl=(np.random.rand(landmark_dim, num_landmarks)-0.5)*pert_deviation
-XL_guess+=dXl
+
+
 
 ############################ LANDMARK MEASUREMENTS #############################
-# Each pose observes each landmark
 num_landmark_measurements=num_poses*num_landmarks
 Zl = np.zeros([landmark_dim, num_landmark_measurements])
 landmark_associations = np.zeros([2, num_landmark_measurements]).astype(int)
@@ -133,7 +126,8 @@ landmark_associations = np.zeros([2, num_landmark_measurements]).astype(int)
 measurement_num = 0
 for pose_num in range(num_poses):
     Xr = np.linalg.inv(XR_true[:,:,pose_num])
-    for landmark_num in range(num_landmarks):
+    for landmark_num in range(num_landmarks):#len(observations[pose_num])):
+        # landmark_id = observations[pose_num][landmark_observ][1]
         Xl=XL_true[:,landmark_num]
         landmark_associations[:,measurement_num] = [pose_num, landmark_num]
         Zl[:,measurement_num] = Xr[0:3,0:3] @ Xl + Xr[0:3,3]
@@ -147,6 +141,7 @@ measurement_num = 0
 for pose_num in range(num_poses):
     Xr = XR_true[:,:,pose_num]
     for landmark_observ in range(len(observations[pose_num])):
+        # landmark_id = observations[pose_num][landmark_observ][1]
         landmark_id = landmarkAssociation(observations[pose_num][landmark_observ][3], land_apperances)
         landmark_img = observations[pose_num][landmark_observ][2]
 
@@ -168,79 +163,117 @@ for pose_num in range(num_poses-1):
     Zr[:, :, measurement_num] = np.linalg.inv(Xi) @ Xj
     measurement_num += 1
 
+################################ GENERATION OF (WRONG) INITIAL GUESS ##################################
+### apply a perturbation to each ideal pose (construct the estimation problem)
+pert_deviation=1;
+XL_guess = np.copy(XL_true);
+
+# apply a perturbation to each landmark
+dXl=(np.random.rand(landmark_dim, num_landmarks)-0.5)*pert_deviation;
+XL_guess+=dXl;
+
 ################################# CALL SOLVER  #################################
 
 # Uncomment the following to suppress pose-landmark measurements
-# Zl = np.zeros([3,0])
+# Zl = np.zeros[3,0]
 
 # Uncomment the following to suppress pose-landmark-projection measurements
 # num_landmarks = 0
-# Zp = np.zeros([3,0])
+# Zp = np.zeros[3,0]
 
 # Uncomment the following to suppress pose-pose measurements
-#  Zr = np.zeros([4,4,0])
+# Zr = np.zeros[4,4,0]
 
-XR, XL, chi_stats_l, num_inliers_l, chi_stats_p, num_inliers_p, chi_stats_r, num_inliers_r, H, b = doTotalLS(XR_guess, np.copy(XL_guess),
-											      Zl, landmark_associations,
-											      Zp, projection_associations,
-											      Zr, pose_associations,
-											      num_poses,
-											      num_landmarks,
-											      num_iterations,
-											      damping,
-											      kernel_threshold)
+index = 0
 
-fig = plt.figure(1)
-fig.suptitle("Landmark and poses", fontsize=16)
-
-ax1 = fig.add_subplot(221, projection='3d')
-ax1.plot(XL_true[0,:],XL_true[1,:],XL_true[2,:], 'o', mfc='none', color='b')
-ax1.plot(XL_guess[0,:],XL_guess[1,:],XL_guess[2,:], 'x', color='r')
-ax1.set_title("Landmark true and guess values", fontsize=10)
-
-ax2 = fig.add_subplot(222, projection='3d')
-ax2.plot(XL_true[0,:],XL_true[1,:],XL_true[2,:], 'o', mfc='none', color='b')
-ax2.plot(XL[0,:],XL[1,:],XL[2,:], 'x', color='r')
-ax2.set_title("Landmark true and estimated values", fontsize=10)
-
-# Estimated trajectory
 for i in range(num_poses):
-    traj_estimated[:,i] = t2v(XR[:,:,i])[0:3]
 
-ax3 = fig.add_subplot(223, projection='3d')
-ax3.plot(traj_true[0,:],traj_true[1,:],traj_true[2,:], 'o', mfc='none', color='b')
-ax3.plot(traj_guess[0,:],traj_guess[1,:],traj_guess[2,:], 'x', color='r')
-ax3.set_zlim([-0.04,0.04])
-ax3.set_title("Robot true and odometry values", fontsize=10)
+    XR_iter = XR_guess[:,:,0:i+1]
 
-ax4 = fig.add_subplot(224, projection='3d')
-ax4.plot(traj_true[0,:],traj_true[1,:],traj_true[2,:], 'o', mfc='none', color='b')
-ax4.plot(traj_estimated[0,:],traj_estimated[1,:],traj_estimated[2,:], 'x', color='r')
-ax4.set_zlim([-0.04,0.04])
-ax4.set_title("Robot true and estimated values", fontsize=10)
+    index += len(observations[i])
+    landmarks_seen = np.zeros(index)
+    lan_iter = 0
+    for j in range(i+1):
+        for k in range(len(observations[j])):
+            landmarks_seen[lan_iter] = observations[j][k][1]
+            lan_iter += 1
 
-fig = plt.figure(2)
-fig.suptitle("Error and inliners", fontsize=16)
+    landmarks_seen = np.array(list(sorted(set(landmarks_seen))), dtype=int)
+    XL_iter = np.take(XL_guess, landmarks_seen)
 
-ax1 = fig.add_subplot(321)
-ax1.plot(chi_stats_l)
-ax1.set_title("Chi Landmarks", fontsize=10)
-ax2 = fig.add_subplot(322)
-ax2.plot(num_inliers_l)
-ax2.set_title("Inliers Landmarks", fontsize=10)
+    Zl_iter = Zl[:, 0:num_landmarks*(i+1)]
+    landmark_associations_iter = landmark_associations[:, 0:num_landmarks*(i+1)]
 
-ax3 = fig.add_subplot(323)
-ax3.plot(chi_stats_r)
-ax3.set_title("Chi Poses", fontsize=10)
-ax4 = fig.add_subplot(324)
-ax4.plot(num_inliers_r)
-ax4.set_title("Inliers Poses", fontsize=10)
+    Zp_iter = Zp[:, 0:index]
+    projection_associations_iter = projection_associations[:, 0:index]
 
-ax5 = fig.add_subplot(325)
-ax5.plot(chi_stats_p)
-ax5.set_title("Chi Projections", fontsize=10)
-ax6 = fig.add_subplot(326)
-ax6.plot(num_inliers_p)
-ax6.set_title("Inliers Projections", fontsize=10)
+    Zr_iter = Zr[:,:,0:i]
+    pose_associations_iter = pose_associations[:, 0:i]
 
-plt.show()
+    num_poses_iter = i
+    num_landmarks = len(landmarks_seen)
+
+    XR, XL, chi_stats_l, num_inliers_l, chi_stats_p, num_inliers_p, chi_stats_r, num_inliers_r, H, b = doTotalLS(np.copy(XR_guess), np.copy(XL_guess),
+                                                      Zl, landmark_associations,
+                                                      Zp, projection_associations,
+                                                      Zr, pose_associations,
+                                                      num_poses,
+                                                      num_landmarks,
+                                                      num_iterations,
+                                                      damping,
+                                                      kernel_threshold)
+
+    fig = plt.figure(1)
+    fig.suptitle("Landmark and poses", fontsize=16)
+
+    ax1 = fig.add_subplot(221, projection='3d')
+    ax1.plot(XL_true[0,:],XL_true[1,:],XL_true[2,:], 'o', mfc='none', color='b')
+    ax1.plot(XL_guess[0,:],XL_guess[1,:],XL_guess[2,:], 'x', color='r')
+    ax1.set_title("Landmark true and guess values", fontsize=10)
+
+    ax2 = fig.add_subplot(222, projection='3d')
+    ax2.plot(XL_true[0,:],XL_true[1,:],XL_true[2,:], 'o', mfc='none', color='b')
+    ax2.plot(XL[0,:],XL[1,:],XL[2,:], 'x', color='r')
+    ax2.set_title("Landmark true and estimated values", fontsize=10)
+
+    # Estimated trajectory
+    for i in range(num_poses):
+        traj_estimated[:,i] = t2v(XR[:,:,i])[0:3]
+
+    ax3 = fig.add_subplot(223, projection='3d')
+    ax3.plot(traj_true[0,:],traj_true[1,:],traj_true[2,:], 'o', mfc='none', color='b')
+    ax3.plot(traj_guess[0,:],traj_guess[1,:],traj_guess[2,:], 'x', color='r')
+    ax3.set_zlim([-0.04,0.04])
+    ax3.set_title("Robot true and odometry values", fontsize=10)
+
+    ax4 = fig.add_subplot(224, projection='3d')
+    ax4.plot(traj_true[0,:],traj_true[1,:],traj_true[2,:], 'o', mfc='none', color='b')
+    ax4.plot(traj_estimated[0,:],traj_estimated[1,:],traj_estimated[2,:], 'x', color='r')
+    ax4.set_zlim([-0.04,0.04])
+    ax4.set_title("Robot true and estimated values", fontsize=10)
+
+    fig = plt.figure(2)
+    fig.suptitle("Error and inliners", fontsize=16)
+
+    ax1 = fig.add_subplot(321)
+    ax1.plot(chi_stats_l)
+    ax1.set_title("Chi Landmarks", fontsize=10)
+    ax2 = fig.add_subplot(322)
+    ax2.plot(num_inliers_l)
+    ax2.set_title("Inliers Landmarks", fontsize=10)
+
+    ax3 = fig.add_subplot(323)
+    ax3.plot(chi_stats_r)
+    ax3.set_title("Chi Poses", fontsize=10)
+    ax4 = fig.add_subplot(324)
+    ax4.plot(num_inliers_r)
+    ax4.set_title("Inliers Poses", fontsize=10)
+
+    ax5 = fig.add_subplot(325)
+    ax5.plot(chi_stats_p)
+    ax5.set_title("Chi Projections", fontsize=10)
+    ax6 = fig.add_subplot(326)
+    ax6.plot(num_inliers_p)
+    ax6.set_title("Inliers Projections", fontsize=10)
+
+    plt.show()

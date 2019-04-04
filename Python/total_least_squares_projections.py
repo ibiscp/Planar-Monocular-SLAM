@@ -3,6 +3,8 @@ import numpy as np
 from total_least_squares_indices import *
 from geometry_helpers_3d import skew
 import math
+from total_least_squares_landmarks import landmarkAssociation
+from numpy.linalg import inv
 
 # Camera matrix
 K = np.array([[180, 0, 320], [0, 180, 240], [0, 0, 1]])
@@ -40,6 +42,90 @@ projection_dim=2
 #   endif;
 #   p_img=p_cam(1:2);
 #   return p_img
+
+def midpoint(p1, p2):
+    mid = (p1 + p2) / 2
+
+    return mid
+
+def triangulate(num_landmarks, num_poses, observations, land_apperances, XR):
+    XL_guess = np.zeros([3, num_landmarks])
+    first_obs = np.zeros([3, num_landmarks]) # pose_id, u, v
+
+    for pose_num in range(num_poses):
+
+        for landmark_observ in range(len(observations[pose_num])):
+
+            landmark_id = landmarkAssociation(observations[pose_num][landmark_observ][3], land_apperances)
+
+            # if first time seeing landmark
+            if np.sum(first_obs[:, landmark_id]) == 0:
+                landmark_img = observations[pose_num][landmark_observ][2]
+                first_obs[:, landmark_id] = [pose_num, landmark_img[0], landmark_img[1]]
+
+            else:
+                # execute triangulation
+                previous_id = int(first_obs[0, landmark_id])
+                x = first_obs[1:, landmark_id]
+                y = observations[pose_num][landmark_observ][2]
+
+
+                P1 = K @ np.eye(3, 4) @ inv(cam_transform) @ inv(XR[:,:,previous_id])
+                P2 = K @ np.eye(3, 4) @ inv(cam_transform) @ inv(XR[:, :,pose_num])
+
+                D = np.array([x[0] * P1[2,:] - P1[0,:],
+                              x[1] * P1[2,:] - P1[1,:],
+                              y[0] * P2[2,:] - P2[0,:],
+                              y[1] * P2[2,:] - P2[1,:]])
+
+                u, s, vh = np.linalg.svd(D)
+                vh = np.transpose(vh)
+
+                point = np.array([vh[0,3]/vh[3,3], vh[1,3]/vh[3,3], vh[2,3]/vh[3,3]])
+
+                first_obs[:, landmark_id] = [pose_num, y[0], y[1]]
+
+                if np.sum(XL_guess[:, landmark_id]) == 0:
+                    XL_guess[:, landmark_id] = point
+                else:
+                    XL_guess[:, landmark_id] = midpoint(XL_guess[:, landmark_id], point)
+
+    return XL_guess
+
+def triangulate2(num_landmarks, num_poses, observations, land_apperances, XR):
+    XL_guess = np.zeros([3, num_landmarks])
+    D = np.zeros([2 * num_poses, 4*num_landmarks])
+    index_vec = np.zeros([1, num_landmarks], dtype=int)
+    cam = K @ np.eye(3, 4) @ inv(cam_transform)
+
+    for pose_num in range(num_poses):
+        for landmark_observ in range(len(observations[pose_num])):
+
+            land_id = landmarkAssociation(observations[pose_num][landmark_observ][3], land_apperances)
+            x = observations[pose_num][landmark_observ][2]
+
+            if abs(x[0]) > 50 and abs(x[1]) > 50:
+                P = cam @ inv(XR[:, :,pose_num])
+
+                index = index_vec[0, land_id]
+
+                D[2 * index, 4*land_id:4*land_id+4] = x[0] * P[2,:] - P[0,:]
+                D[2 * index + 1, 4*land_id:4*land_id+4] = x[1] * P[2,:] - P[1,:]
+
+                index_vec[0, land_id] += 1
+
+    for landmark_num in range(num_landmarks):
+        index = index_vec[0, landmark_num]
+
+        A = D[0:2*index, 4*landmark_num:4*landmark_num+4]
+
+        _, _, vh = np.linalg.svd(A)
+
+        point = np.array([vh[3,0]/vh[3,3], vh[3,1]/vh[3,3], vh[3,2]/vh[3,3]])
+
+        XL_guess[:, landmark_num] = point
+
+    return XL_guess
 
 # Error and jacobian of a measured landmark
 # Input:
