@@ -114,18 +114,28 @@ def triangulate2(num_landmarks, num_poses, observations, land_apperances, XR):
 
                 index_vec[0, land_id] += 1
 
+    iter = 0
+    ids = {}#np.zeros([1, num_landmarks], dtype=int)
     for landmark_num in range(num_landmarks):
         index = index_vec[0, landmark_num]
 
         A = D[0:2*index, 4*landmark_num:4*landmark_num+4]
 
-        _, _, vh = np.linalg.svd(A)
+        _, b, vh = np.linalg.svd(A)
 
+        #if len(b) == 4:
         point = np.array([vh[3,0]/vh[3,3], vh[3,1]/vh[3,3], vh[3,2]/vh[3,3]])
 
-        XL_guess[:, landmark_num] = point
+        if (abs(point[0]) > 12 and abs(point[1]) > 12 and abs(point[2]) > 3):
+            XL_guess[:, iter] = np.array([0,0,0])
+        else:
+            XL_guess[:, iter] = point
+        ids[landmark_num] = iter
+        iter += 1
 
-    return XL_guess
+    XL_guess = XL_guess[:,0:iter]
+
+    return ids, XL_guess
 
 # Error and jacobian of a measured landmark
 # Input:

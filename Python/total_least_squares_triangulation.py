@@ -164,6 +164,8 @@ def triangulate(num_landmarks, num_poses, observations, land_apperances, XR):
 
     return XL_guess
 
+stop = [31, 32, 371, 443, 983]
+
 def triangulate2(num_landmarks, num_poses, observations, land_apperances, XR):
     XL_guess = np.zeros([3, num_landmarks])
     D = np.zeros([2 * num_poses, 4*num_landmarks])
@@ -186,28 +188,43 @@ def triangulate2(num_landmarks, num_poses, observations, land_apperances, XR):
 
                 index_vec[0, land_id] += 1
 
+    iter = 0
+    ids = {}
     for landmark_num in range(num_landmarks):
         index = index_vec[0, landmark_num]
 
         A = D[0:2*index, 4*landmark_num:4*landmark_num+4]
 
-        _, _, vh = np.linalg.svd(A)
+        a, b, vh = np.linalg.svd(A)
 
-        point = np.array([vh[3,0]/vh[3,3], vh[3,1]/vh[3,3], vh[3,2]/vh[3,3]])
+        if len(b) == 4:
 
-        XL_guess[:, landmark_num] = point
+            point = np.array([vh[3,0]/vh[3,3], vh[3,1]/vh[3,3], vh[3,2]/vh[3,3]])
 
-    return XL_guess
+            # if landmark_num in stop:
+            #     print(b)
+            #     print(point)
+            #     print(XL_true[:,landmark_num])
 
-XL_guess = triangulate2(num_landmarks, num_poses, observations, land_apperances, XR_true)
-XL_guess2 = triangulate(num_landmarks, num_poses, observations, land_apperances, XR_true)
+            if abs(point[0]) <=10 and abs(point[1]) <=10 and abs(point[2]) <=2:
+                XL_guess[:, landmark_num] = point
+                ids[landmark_num] = iter
+                iter += 1
+
+    XL_guess = XL_guess[:, 0:iter]
+    # ids = ids[:, 0:iter]
+
+    return ids, XL_guess
+
+ids, XL_guess = triangulate2(num_landmarks, num_poses, observations, land_apperances, XR_guess)
 
 count = 0
+num_landmarks = XL_guess.shape[1]
 for i in range(num_landmarks):
-    error = abs(XL_true[:, i] - XL_guess[:,i])
-    if np.sum(error) > 0.01:
+    id = ids[0,i]
+    error = abs(XL_true[:, id] - XL_guess[:,i])
+    if np.sum(error) > 20:
         count += 1
         print("Landmark ", i, count)
         print(XL_guess[:,i])
-        print(XL_guess2[:, i])
-        print(XL_true[:,i])
+        print(XL_true[:,id])

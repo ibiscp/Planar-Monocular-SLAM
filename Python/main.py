@@ -17,7 +17,7 @@ from total_least_squares_projections import triangulate2
 projection_dim = 2
 
 damping = 0
-kernel_threshold = 1e3
+kernel_threshold = 10000
 num_iterations = 50
 
 ################################## TRAJECTORY ##################################
@@ -116,13 +116,14 @@ for f in files:
     observations.append(landmark_observation)
 
 ########################### LANDMARKS TRIANGULATION ############################
-# XL_guess = triangulate2(num_landmarks, num_poses, observations, land_apperances, XR_true)
+landmark_ids, XL_guess = triangulate2(num_landmarks, num_poses, observations, land_apperances, XR_guess)
 
 # apply a perturbation to each landmark
-pert_deviation=1
-XL_guess = np.copy(XL_true)
-dXl=(np.random.rand(landmark_dim, num_landmarks)-0.5)*pert_deviation
-XL_guess+=dXl
+# pert_deviation=1
+# XL_guess = np.copy(XL_true)
+# dXl=(np.random.rand(landmark_dim, num_landmarks)-0.5)*pert_deviation
+# XL_guess+=dXl
+num_landmarks = XL_guess.shape[1]
 
 ############################ LANDMARK MEASUREMENTS #############################
 # Each pose observes each landmark
@@ -132,8 +133,10 @@ landmark_associations = np.zeros([2, num_landmark_measurements]).astype(int)
 
 measurement_num = 0
 for pose_num in range(num_poses):
+    # TODO use XR_guess
     Xr = np.linalg.inv(XR_true[:,:,pose_num])
     for landmark_num in range(num_landmarks):
+        # TODO use XL_guess
         Xl=XL_true[:,landmark_num]
         landmark_associations[:,measurement_num] = [pose_num, landmark_num]
         Zl[:,measurement_num] = Xr[0:3,0:3] @ Xl + Xr[0:3,3]
@@ -145,14 +148,21 @@ projection_associations = np.zeros([2, num_landmark_measurements]).astype(int)
 
 measurement_num = 0
 for pose_num in range(num_poses):
-    Xr = XR_true[:,:,pose_num]
+    Xr = XR_guess[:,:,pose_num]
     for landmark_observ in range(len(observations[pose_num])):
         landmark_id = landmarkAssociation(observations[pose_num][landmark_observ][3], land_apperances)
         landmark_img = observations[pose_num][landmark_observ][2]
 
-        projection_associations[:,measurement_num] = [pose_num, landmark_id]
-        Zp[:, measurement_num] = landmark_img
-        measurement_num += 1
+        try:
+            id = landmark_ids[landmark_id]
+            projection_associations[:,measurement_num] = [pose_num, id]
+            Zp[:, measurement_num] = landmark_img
+            measurement_num += 1
+        except:
+            continue
+
+projection_associations = projection_associations[:, 0:measurement_num]
+Zp = Zp[:, 0:measurement_num]
 
 ############################## POSE MEASUREMENTS ###############################
 # Generate an odometry trajectory for the robot
@@ -162,8 +172,8 @@ pose_associations = np.zeros([2, num_pose_measurements]).astype(int)
 
 measurement_num = 0
 for pose_num in range(num_poses-1):
-    Xi=XR_true[:, :, pose_num]
-    Xj=XR_true[:, :, pose_num+1]
+    Xi=XR_guess[:, :, pose_num]
+    Xj=XR_guess[:, :, pose_num+1]
     pose_associations[:, measurement_num] = [pose_num, pose_num+1]
     Zr[:, :, measurement_num] = np.linalg.inv(Xi) @ Xj
     measurement_num += 1
