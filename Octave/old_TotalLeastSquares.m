@@ -39,6 +39,23 @@ for (pose_num=2:num_poses)
     XR_true(:,:,pose_num)=Xr;
 endfor;
 
+############################## GENERATION OF (WRONG) INITIAL GUESS ################################## 
+
+# apply a perturbation to each ideal pose (construct the estimation problem)
+pert_deviation=0.5;
+pert_scale=eye(6)*pert_deviation;
+XR_guess=XR_true;
+XL_guess=XL_true;
+
+for (pose_num=2:num_poses)
+    xr=rand(6,1)-0.5;
+    dXr=v2t(pert_scale*xr);
+    XR_guess(:,:,pose_num)=dXr*XR_guess(:,:,pose_num);
+endfor;
+
+#apply a perturbation to each landmark
+dXl=(rand(landmark_dim, num_landmarks)-0.5)*pert_deviation;
+XL_guess+=dXl;
 
 ######################################## LANDMARK MEASUREMENTS ######################################## 
 # generate an ideal number of landmark measurements
@@ -67,15 +84,15 @@ projection_associations=zeros(2,num_projection_measurements);
 
 measurement_num=1;
 for (pose_num=1:num_poses)
-    Xr=XR_true(:,:,pose_num);
+    Xr=XR_guess(:,:,pose_num);
     for (landmark_num=1:num_landmarks)
-	Xl=XL_true(:,landmark_num);
-	z_img=projectPoint(Xr,Xl);
-	if (z_img(1)>0)
-	  projection_associations(:,measurement_num)=[pose_num, landmark_num]';
-	  Zp(:,measurement_num)=z_img;
-	  measurement_num++;
-	endif;
+      Xl=XL_guess(:,landmark_num);
+      z_img=projectPoint(Xr,Xl);
+      if (z_img(1)>0)
+        projection_associations(:,measurement_num)=[pose_num, landmark_num]';
+        Zp(:,measurement_num)=z_img;
+        measurement_num++;
+      endif;
     endfor;
 endfor
 # crop the projection associations to something meaningful
@@ -94,31 +111,13 @@ pose_associations=zeros(2,num_pose_measurements);
 measurement_num=1;
 for (pose_num=1:num_poses-1)
 
-    Xi=XR_true(:,:,pose_num);
-    Xj=XR_true(:,:,pose_num+1);
+    Xi=XR_guess(:,:,pose_num);
+    Xj=XR_guess(:,:,pose_num+1);
     pose_associations(:,measurement_num)=[pose_num, pose_num+1]';
     Zr(:,:,measurement_num)=inv(Xi)*Xj;
 
     measurement_num++;
 endfor
-
-############################## GENERATION OF (WRONG) INITIAL GUESS ################################## 
-
-# apply a perturbation to each ideal pose (construct the estimation problem)
-pert_deviation=1;
-pert_scale=eye(6)*pert_deviation;
-XR_guess=XR_true;
-XL_guess=XL_true;
-
-for (pose_num=2:num_poses)
-    xr=rand(6,1)-0.5;
-    dXr=v2t(pert_scale*xr);
-    XR_guess(:,:,pose_num)=dXr*XR_guess(:,:,pose_num);
-endfor;
-
-#apply a perturbation to each landmark
-dXl=(rand(landmark_dim, num_landmarks)-0.5)*pert_deviation;
-XL_guess+=dXl;
 
 
 
@@ -134,9 +133,9 @@ XL_guess+=dXl;
 # uncomment the following to suppress pose-pose measurements
 # Zr=zeros(4,4,0);
 
-damping=0;
-kernel_threshold=1e3;
-num_iterations=10;
+damping=0.5;
+kernel_threshold=100;
+num_iterations=50;
 [XR, XL,chi_stats_l, num_inliers_l, chi_stats_p, num_inliers_p, chi_stats_r, num_inliers_r, H, b]=doTotalLS(XR_guess, XL_guess, 
 												      Zl, landmark_associations, 
 												      Zp, projection_associations, 
