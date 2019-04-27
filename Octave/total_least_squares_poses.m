@@ -42,12 +42,13 @@ function [e,Ji,Jj]=poseErrorAndJacobian(Xi,Xj,Z)
   Z_hat(1:3,4)=Ri_transpose*tij;
   e=flattenIsometryByColumns(Z_hat-Z);
   
-  ##  disp("total_least_squares_poses (poseErrorAndJacobian)")
-  ##  Z_hat(1:3,1:3)
-  ##  Z_hat(1:3,4)
-  ##  Z_hat-Z
-  ##  e
-  ##  pause()
+  ##    disp("total_least_squares_poses (poseErrorAndJacobian)")
+  ##    Z_hat(1:3,1:3)
+  ##    Z_hat(1:3,4)
+  ##    Z
+  ##    Z_hat-Z
+  ##    e
+  ##    pause()
   
  endfunction;
 
@@ -77,6 +78,7 @@ function [H,b, chi_tot, num_inliers]=linearizePoses(XR, XL, Zr, associations,num
   b=zeros(system_size,1);
   chi_tot=0;
   num_inliers=0;
+  
   for (measurement_num=1:size(Zr,3))
     Omega=eye(12);
     Omega(1:9,1:9)*=1e3; # we need to pimp the rotation  part a little
@@ -86,11 +88,11 @@ function [H,b, chi_tot, num_inliers]=linearizePoses(XR, XL, Zr, associations,num
     Xi=XR(:,:,pose_i_index);
     Xj=XR(:,:,pose_j_index);
     [e,Ji,Jj] = poseErrorAndJacobian(Xi, Xj, Z);
-##    disp("total_least_squares_poses")
-##    sum(e(:))
-##    sum(Ji(:))
-##    sum(Jj(:))
-##    pause()
+    ##    disp("total_least_squares_poses")
+    ##    sum(e(:))
+    ##    sum(Ji(:))
+    ##    sum(Jj(:))
+    ##    pause()
   
     chi=e'*Omega*e;
     if (chi>kernel_threshold)

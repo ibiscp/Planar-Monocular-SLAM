@@ -53,7 +53,7 @@ def boxPlus(XR, XL, num_poses, num_landmarks, dx):
 
 def doTotalLS(XR, XL, Zl, landmark_associations, Zp, projection_associations,
 	     Zr, pose_associations, num_poses, num_landmarks, num_iterations,
-	     damping, kernel_threshold):
+	     damping, kernel_threshold_proj, kernel_threshold_pose):
 
     chi_stats_l = np.zeros(num_iterations)
     num_inliers_l = np.zeros(num_iterations)
@@ -64,31 +64,47 @@ def doTotalLS(XR, XL, Zl, landmark_associations, Zp, projection_associations,
 
     # Size of the linear system
     system_size = pose_dim * num_poses + landmark_dim * num_landmarks
-    # for iteration in range(num_iterations):
+
     threshold = 1e-6
     error = 1e6
     iteration = 0
-    while error > threshold and iteration < num_iterations:
+    while iteration < num_iterations and error > threshold:
         print('Iteration: ' + str(iteration))
 
-        if (num_landmarks):
-            H_landmarks, b_landmarks, chi_, num_inliers_ = linearizeLandmarks(XR, XL, Zl, landmark_associations,num_poses, num_landmarks, kernel_threshold)
-            chi_stats_l[iteration] = chi_
-            num_inliers_l[iteration] = num_inliers_
+        if num_landmarks:
+            # H_landmarks, b_landmarks, chi_, num_inliers_ = linearizeLandmarks(XR, XL, Zl, landmark_associations,num_poses, num_landmarks, kernel_threshold_pose)
+            # chi_stats_l[iteration] = chi_
+            # num_inliers_l[iteration] = num_inliers_
+            # print("total_least_squares (linearizeLandmarks)")
+            # print(np.sum(H_landmarks))
+            # print(np.sum(b_landmarks))
+            # print(np.sum(chi_))
+            # print(np.sum(num_inliers_))
 
-            H_projections, b_projections, chi_, num_inliers_ = linearizeProjections(XR, XL, Zp, projection_associations,num_poses, num_landmarks, kernel_threshold)
+            H_projections, b_projections, chi_, num_inliers_ = linearizeProjections(XR, XL, Zp, projection_associations,num_poses, num_landmarks, kernel_threshold_proj)
             chi_stats_p[iteration] = chi_stats_p[iteration] + chi_
             num_inliers_p[iteration] = num_inliers_
+            # print("total_least_squares (linearizeProjections)")
+            # print(np.sum(H_projections))
+            # print(np.sum(b_projections))
+            # print(np.sum(chi_))
+            # print(np.sum(num_inliers_))
 
-        H_poses, b_poses, chi_, num_inliers_ = linearizePoses(XR, XL, Zr, pose_associations, num_poses, num_landmarks, kernel_threshold)
+        H_poses, b_poses, chi_, num_inliers_ = linearizePoses(XR, XL, Zr, pose_associations, num_poses, num_landmarks, kernel_threshold_pose)
         chi_stats_r[iteration] += chi_
         num_inliers_r[iteration] = num_inliers_
+        # print("total_least_squares (linearizePoses)")
+        # print(np.sum(H_poses))
+        # print(np.sum(b_poses))
+        # print(np.sum(chi_))
+        # print(np.sum(num_inliers_))
 
-        H = H_poses
-        b = b_poses
-        if (num_landmarks):
-            H += H_landmarks + H_projections
-            b += b_landmarks + b_projections
+
+        H = H_poses + H_projections
+        b = b_poses + b_projections
+        # if num_landmarks:
+        #     H += H_landmarks + H_projections
+        #     b += b_landmarks + b_projections
 
 
         H += np.eye(system_size) * damping
@@ -104,5 +120,8 @@ def doTotalLS(XR, XL, Zl, landmark_associations, Zp, projection_associations,
         iteration += 1
         error = np.sum(np.absolute(dx))
         print("Error: " + str(error))
+
+        # print(np.sum(XR))
+        # print(np.sum(XL))
 
     return XR, XL, chi_stats_l, num_inliers_l, chi_stats_p, num_inliers_p,chi_stats_r, num_inliers_r, H, b

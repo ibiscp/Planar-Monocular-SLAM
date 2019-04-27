@@ -47,7 +47,7 @@ endfunction;
 #   num_landmarks: number of landmarks in XL (added for consistency)
 #   num_iterations: the number of iterations of least squares
 #   damping:      damping factor (in case system not spd)
-#   kernel_threshod: robust kernel threshold
+#   kernel_threshold: robust kernel threshold
 
 # output:
 #   XR: the robot poses after optimization
@@ -100,32 +100,33 @@ function [XR, XL, chi_stats_l, num_inliers_l, chi_stats_p, num_inliers_p,chi_sta
       [H_landmarks, b_landmarks, chi_, num_inliers_] = linearizeLandmarks(XR, XL, Zl, landmark_associations,num_poses, num_landmarks, kernel_threshold);
       chi_stats_l(iteration)=chi_;
       num_inliers_l(iteration)=num_inliers_;
-      ##      disp("total_least_squares (linearizeLandmarks)")
-      ##      sum(H_landmarks(:))
-      ##      sum(b_landmarks(:))
-      ##      sum(chi_(:))
-      ##      sum(num_inliers_(:))
-      ##      pause()
-
+##            disp("total_least_squares (linearizeLandmarks)")
+##            sum(H_landmarks(:))
+##            sum(b_landmarks(:))
+##            sum(chi_(:))
+##            sum(num_inliers_(:))
+##            #pause()
+            
       [H_projections, b_projections, chi_, num_inliers_] = linearizeProjections(XR, XL, Zp, projection_associations,num_poses, num_landmarks, kernel_threshold);
       chi_stats_p(iteration)+=chi_;
       num_inliers_p(iteration)=num_inliers_;
-      ##      disp("total_least_squares (linearizeProjections)")
-      ##      sum(H_projections(:))
-      ##      sum(b_projections(:))
-      ##      sum(chi_(:))
-      ##      sum(num_inliers_(:))
-      ##      pause()
+##            disp("total_least_squares (linearizeProjections)")
+##            sum(H_projections(:))
+##            sum(b_projections(:))
+##            sum(chi_(:))
+##            sum(num_inliers_(:))
+##            #pause()
     endif;
 
     [H_poses, b_poses, chi_, num_inliers_] = linearizePoses(XR, XL, Zr, pose_associations,num_poses, num_landmarks, kernel_threshold);
     chi_stats_r(iteration)+=chi_;
     num_inliers_r(iteration)=num_inliers_;
-    ##    disp("total_least_squares (linearizePoses)")
-    ##    sum(H_poses(:))
-    ##    sum(b_poses(:))
-    ##    sum(chi_(:))
-    ##    sum(num_inliers_(:))
+##        disp("total_least_squares (linearizePoses)")
+##        sum(H_poses(:))
+##        sum(b_poses(:))
+##        sum(chi_(:))
+##        sum(num_inliers_(:))
+##        #pause()
     
     H=H_poses;
     b=b_poses;
@@ -144,10 +145,11 @@ function [XR, XL, chi_stats_l, num_inliers_l, chi_stats_p, num_inliers_p,chi_sta
     dx(pose_dim+1:end)=-(H(pose_dim+1:end,pose_dim+1:end)\b(pose_dim+1:end,1));
     [XR, XL]=boxPlus(XR,XL,num_poses, num_landmarks, dx);
     
-    ##    sum(dx(:))    
-    ##    sum(XR(:))
-    ##    sum(XL(:))
-    ##    pause()
+##    disp("total_least_squares (final)")
+      sum(abs(dx(:)))    
+##    sum(XR(:))
+##    sum(XL(:))
+##    #pause()
 
   endfor
 endfunction

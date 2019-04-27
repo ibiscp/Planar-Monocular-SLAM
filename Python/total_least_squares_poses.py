@@ -46,6 +46,7 @@ def poseErrorAndJacobian(Xi,Xj,Z):
     # print('total_least_squares_poses (poseErrorAndJacobian)')
     # print(Z_hat[0:3, 0:3])
     # print(Z_hat[0:3, [3]])
+    # print(Z)
     # print(Z_hat - Z)
     # print(e)
 
@@ -79,17 +80,15 @@ def linearizePoses(XR, XL, Zr, associations, num_poses, num_landmarks, kernel_th
 
     for measurement_num in range(Zr.shape[2]):
         Omega = np.eye(12)
-        Omega[0:9, 0:9] *= 1e3 # we need to pimp the rotation  part a little
+        # Omega[0:9, 0:9] *= 1e3 # we need to pimp the rotation  part a little
         pose_i_index = associations[0, measurement_num]
         pose_j_index = associations[1, measurement_num]
         Z = Zr[:, :, measurement_num]
         Xi = XR[:, :, pose_i_index]
         Xj = XR[:, :, pose_j_index]
+
+        # Calculate Error and Jacobian
         e, Ji, Jj = poseErrorAndJacobian(Xi, Xj, Z)
-        # print('total_least_squares_poses')
-        # print(np.sum(e))
-        # print(np.sum(Ji))
-        # print(np.sum(Jj))
 
         chi = e.transpose() @ Omega @ e
         if chi > kernel_threshold:
@@ -99,37 +98,25 @@ def linearizePoses(XR, XL, Zr, associations, num_poses, num_landmarks, kernel_th
             num_inliers += 1
         chi_tot += chi
 
+        # Indices
         pose_i_matrix_index = poseMatrixIndex(pose_i_index, num_poses, num_landmarks)
         pose_j_matrix_index = poseMatrixIndex(pose_j_index, num_poses, num_landmarks)
 
+        # Fill H and b
         H[pose_i_matrix_index:pose_i_matrix_index+pose_dim,
           pose_i_matrix_index:pose_i_matrix_index+pose_dim] += Ji.transpose() @ Omega @ Ji
-
-        # print(Ji.transpose() @ Omega @ Ji)
 
         H[pose_i_matrix_index:pose_i_matrix_index+pose_dim,
           pose_j_matrix_index:pose_j_matrix_index+pose_dim] += Ji.transpose() @ Omega @ Jj
 
-        # print(Ji.transpose() @ Omega @ Jj)
-
         H[pose_j_matrix_index:pose_j_matrix_index+pose_dim,
           pose_i_matrix_index:pose_i_matrix_index+pose_dim] += Jj.transpose() @ Omega @ Ji
-
-        # print(Jj.transpose() @ Omega @ Ji)
 
         H[pose_j_matrix_index:pose_j_matrix_index+pose_dim,
           pose_j_matrix_index:pose_j_matrix_index+pose_dim] += Jj.transpose() @ Omega @ Jj
 
-        # print(Jj.transpose() @ Omega @ Jj)
-
         b[pose_i_matrix_index:pose_i_matrix_index+pose_dim] += Ji.transpose() @ Omega @ e
-        # print(Ji.transpose() @ Omega @ e)
         b[pose_j_matrix_index:pose_j_matrix_index+pose_dim] += Jj.transpose() @ Omega @ e
-        # print(Jj.transpose() @ Omega @ e)
 
-        # print(np.sum(H))
-        # print(np.sum(b))
-        # print(np.sum(chi_tot))
-        # print(np.sum(num_inliers))
 
     return H, b, chi_tot, num_inliers

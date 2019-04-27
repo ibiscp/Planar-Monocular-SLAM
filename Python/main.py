@@ -12,12 +12,13 @@ import matplotlib
 matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
 from total_least_squares_landmarks import landmarkAssociation
-from total_least_squares_projections import triangulate2
+from total_least_squares_projections import triangulate
 
 projection_dim = 2
 
-damping = 0
-kernel_threshold = 10000
+damping = 0.1
+kernel_threshold_proj = 2000
+kernel_threshold_pose = 0.01
 num_iterations = 50
 
 ################################## TRAJECTORY ##################################
@@ -116,13 +117,15 @@ for f in files:
     observations.append(landmark_observation)
 
 ########################### LANDMARKS TRIANGULATION ############################
-landmark_ids, XL_guess = triangulate2(num_landmarks, num_poses, observations, land_apperances, XR_guess)
+landmark_ids, XL_guess = triangulate(num_landmarks, num_poses, observations, land_apperances, XR_guess)
 
 # apply a perturbation to each landmark
-# pert_deviation=1
+# pert_deviation=-0.1
 # XL_guess = np.copy(XL_true)
-# dXl=(np.random.rand(landmark_dim, num_landmarks)-0.5)*pert_deviation
+# # dXl=(np.random.rand(landmark_dim, num_landmarks)-0.5)*pert_deviation
+# dXl = XL_guess * pert_deviation
 # XL_guess+=dXl
+
 num_landmarks = XL_guess.shape[1]
 
 ############################ LANDMARK MEASUREMENTS #############################
@@ -134,10 +137,10 @@ landmark_associations = np.zeros([2, num_landmark_measurements]).astype(int)
 measurement_num = 0
 for pose_num in range(num_poses):
     # TODO use XR_guess
-    Xr = np.linalg.inv(XR_true[:,:,pose_num])
+    Xr = np.linalg.inv(XR_guess[:,:,pose_num])
     for landmark_num in range(num_landmarks):
         # TODO use XL_guess
-        Xl=XL_true[:,landmark_num]
+        Xl=XL_guess[:,landmark_num]
         landmark_associations[:,measurement_num] = [pose_num, landmark_num]
         Zl[:,measurement_num] = Xr[0:3,0:3] @ Xl + Xr[0:3,3]
         measurement_num += 1
@@ -148,7 +151,6 @@ projection_associations = np.zeros([2, num_landmark_measurements]).astype(int)
 
 measurement_num = 0
 for pose_num in range(num_poses):
-    Xr = XR_guess[:,:,pose_num]
     for landmark_observ in range(len(observations[pose_num])):
         landmark_id = landmarkAssociation(observations[pose_num][landmark_observ][3], land_apperances)
         landmark_img = observations[pose_num][landmark_observ][2]
@@ -181,7 +183,7 @@ for pose_num in range(num_poses-1):
 ################################# CALL SOLVER  #################################
 
 # Uncomment the following to suppress pose-landmark measurements
-# Zl = np.zeros([3,0])
+Zl = np.zeros([3,0])
 
 # Uncomment the following to suppress pose-landmark-projection measurements
 # num_landmarks = 0
@@ -190,15 +192,33 @@ for pose_num in range(num_poses-1):
 # Uncomment the following to suppress pose-pose measurements
 #  Zr = np.zeros([4,4,0])
 
-XR, XL, chi_stats_l, num_inliers_l, chi_stats_p, num_inliers_p, chi_stats_r, num_inliers_r, H, b = doTotalLS(XR_guess, np.copy(XL_guess),
-											      Zl, landmark_associations,
-											      Zp, projection_associations,
-											      Zr, pose_associations,
-											      num_poses,
-											      num_landmarks,
-											      num_iterations,
-											      damping,
-											      kernel_threshold)
+# print(np.sum(XR_guess))
+# print(np.sum(XL_guess))
+# print(np.sum(Zl))
+# print(landmark_associations.shape)
+# print(np.sum(Zp))
+# print(projection_associations.shape)
+# print(np.sum(Zr))
+# print(pose_associations.shape)
+# print(num_poses)
+# print(num_landmarks)
+# print(num_iterations)
+# print(damping)
+# print(kernel_threshold_proj)
+# print(kernel_threshold_pose)
+
+
+XR, XL, chi_stats_l, num_inliers_l, chi_stats_p, num_inliers_p, chi_stats_r, num_inliers_r, H, b =\
+    doTotalLS(XR_guess, np.copy(XL_guess),
+              Zl, landmark_associations,
+              Zp, projection_associations,
+              Zr, pose_associations,
+              num_poses,
+              num_landmarks,
+              num_iterations,
+              damping,
+              kernel_threshold_proj,
+              kernel_threshold_pose)
 
 fig = plt.figure(1)
 fig.suptitle("Landmark and poses", fontsize=16)

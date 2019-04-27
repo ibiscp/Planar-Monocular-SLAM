@@ -8,7 +8,6 @@ from numpy.linalg import inv
 
 # Camera matrix
 K = np.array([[180, 0, 320], [0, 180, 240], [0, 0, 1]])
-
 cam_transform = np.array([[0, 0, 1, 0.2], [-1, 0, 0, 0], [0, -1, 0, 0], [0, 0, 0, 1]])
 
 # Image_size
@@ -20,79 +19,7 @@ z_far = 5
 # Dimension of projection
 projection_dim=2
 
-# Projects a point
-# function p_img=projectPoint(Xr,Xl)
-#   global image_cols;
-#   global image_rows;
-#   global K;
-#   iXr=inv(Xr);
-#   p_img=[-1;-1];
-#   pw=iXr(1:3,1:3)*Xl+iXr(1:3,4);
-#   if (pw(3)<0)
-#      return;
-#   endif;
-#   p_cam=K*pw;
-#   iz=1./p_cam(3);
-#   p_cam*=iz;
-#   if (p_cam(1)<0 ||
-#       p_cam(1)>image_cols ||
-#       p_cam(2)<0 ||
-#       p_cam(2)>image_rows)
-#     return;
-#   endif;
-#   p_img=p_cam(1:2);
-#   return p_img
-
-def midpoint(p1, p2):
-    mid = (p1 + p2) / 2
-
-    return mid
-
 def triangulate(num_landmarks, num_poses, observations, land_apperances, XR):
-    XL_guess = np.zeros([3, num_landmarks])
-    first_obs = np.zeros([3, num_landmarks]) # pose_id, u, v
-
-    for pose_num in range(num_poses):
-
-        for landmark_observ in range(len(observations[pose_num])):
-
-            landmark_id = landmarkAssociation(observations[pose_num][landmark_observ][3], land_apperances)
-
-            # if first time seeing landmark
-            if np.sum(first_obs[:, landmark_id]) == 0:
-                landmark_img = observations[pose_num][landmark_observ][2]
-                first_obs[:, landmark_id] = [pose_num, landmark_img[0], landmark_img[1]]
-
-            else:
-                # execute triangulation
-                previous_id = int(first_obs[0, landmark_id])
-                x = first_obs[1:, landmark_id]
-                y = observations[pose_num][landmark_observ][2]
-
-
-                P1 = K @ np.eye(3, 4) @ inv(cam_transform) @ inv(XR[:,:,previous_id])
-                P2 = K @ np.eye(3, 4) @ inv(cam_transform) @ inv(XR[:, :,pose_num])
-
-                D = np.array([x[0] * P1[2,:] - P1[0,:],
-                              x[1] * P1[2,:] - P1[1,:],
-                              y[0] * P2[2,:] - P2[0,:],
-                              y[1] * P2[2,:] - P2[1,:]])
-
-                u, s, vh = np.linalg.svd(D)
-                vh = np.transpose(vh)
-
-                point = np.array([vh[0,3]/vh[3,3], vh[1,3]/vh[3,3], vh[2,3]/vh[3,3]])
-
-                first_obs[:, landmark_id] = [pose_num, y[0], y[1]]
-
-                if np.sum(XL_guess[:, landmark_id]) == 0:
-                    XL_guess[:, landmark_id] = point
-                else:
-                    XL_guess[:, landmark_id] = midpoint(XL_guess[:, landmark_id], point)
-
-    return XL_guess
-
-def triangulate2(num_landmarks, num_poses, observations, land_apperances, XR):
     XL_guess = np.zeros([3, num_landmarks])
     D = np.zeros([2 * num_poses, 4*num_landmarks])
     index_vec = np.zeros([1, num_landmarks], dtype=int)
@@ -123,15 +50,17 @@ def triangulate2(num_landmarks, num_poses, observations, land_apperances, XR):
 
         _, b, vh = np.linalg.svd(A)
 
-        #if len(b) == 4:
-        point = np.array([vh[3,0]/vh[3,3], vh[3,1]/vh[3,3], vh[3,2]/vh[3,3]])
-
-        if (abs(point[0]) > 12 and abs(point[1]) > 12 and abs(point[2]) > 3):
-            XL_guess[:, iter] = np.array([0,0,0])
-        else:
+        if len(b) == 4:
+            point = np.array([vh[3,0]/vh[3,3], vh[3,1]/vh[3,3], vh[3,2]/vh[3,3]])
             XL_guess[:, iter] = point
-        ids[landmark_num] = iter
-        iter += 1
+            ids[landmark_num] = iter
+            iter += 1
+        else:
+            print(landmark_num)
+        # if (abs(point[0]) > 12 and abs(point[1]) > 12 and abs(point[2]) > 3):
+        #     XL_guess[:, iter] = np.array([0,0,0])
+        # else:
+
 
     XL_guess = XL_guess[:,0:iter]
 
@@ -149,7 +78,6 @@ def triangulate2(num_landmarks, num_poses, observations, land_apperances, XR):
 #   Jl: 2x3 derivative w.r.t a the error and a perturbation on the
 #       landmark
 #   is_valid: true if projection ok
-
 def projectionErrorAndJacobian(Xr,Xl,z):
     is_valid = False
     e = np.zeros([2, 1])
@@ -162,7 +90,7 @@ def projectionErrorAndJacobian(Xr,Xl,z):
     it = -iR @ w2c[0:3,3]
 
     pw = iR @ Xl + it #point prediction, in world scale
-    if (pw[1]<z_near or pw[1]>z_far):
+    if (pw[2]<z_near or pw[2]>z_far):
         return is_valid, e, Jr, Jl
 
     Jwr = np.zeros([3,6])
@@ -177,7 +105,8 @@ def projectionErrorAndJacobian(Xr,Xl,z):
         return is_valid, e, Jr, Jl
 
     iz2 = iz * iz
-    Jp = np.array([[iz, 0, -p_cam[0] * iz2], [0, iz, -p_cam[1] * iz2]])
+    Jp = np.array([[iz,  0, -p_cam[0] * iz2],
+                   [0,  iz, -p_cam[1] * iz2]])
 
     e = (z_hat - z).reshape([-1, 1])
     Jr = Jp @ K @ Jwr
@@ -203,11 +132,12 @@ def projectionErrorAndJacobian(Xr,Xl,z):
 #   XL: the landmarks after optimization
 #   chi_stats: array 1:num_iterations, containing evolution of chi2
 #   num_inliers: array 1:num_iterations, containing evolution of inliers
-
 def linearizeProjections(XR, XL, Zl, associations, num_poses, num_landmarks, kernel_threshold):
     system_size = pose_dim * num_poses + landmark_dim * num_landmarks
+
     H = np.zeros([system_size, system_size])
     b = np.zeros([system_size,1])
+
     chi_tot = 0
     num_inliers = 0
     for measurement_num in range(Zl.shape[1]):
@@ -227,22 +157,26 @@ def linearizeProjections(XR, XL, Zl, associations, num_poses, num_landmarks, ker
             num_inliers += 1
         chi_tot += chi
 
+        # Indices
         pose_matrix_index = poseMatrixIndex(pose_index, num_poses, num_landmarks)
         landmark_matrix_index = landmarkMatrixIndex(landmark_index, num_poses, num_landmarks)
 
-        H[pose_matrix_index:pose_matrix_index+pose_dim,
-          pose_matrix_index:pose_matrix_index+pose_dim] += Jr.transpose() @ Jr
+        # Fill H and b
+        omega_proj = 0.01 * np.identity(2)
 
         H[pose_matrix_index:pose_matrix_index+pose_dim,
-          landmark_matrix_index:landmark_matrix_index+landmark_dim] += Jr.transpose() @ Jl
+          pose_matrix_index:pose_matrix_index+pose_dim] += Jr.transpose() @ omega_proj @ Jr
+
+        H[pose_matrix_index:pose_matrix_index+pose_dim,
+          landmark_matrix_index:landmark_matrix_index+landmark_dim] += Jr.transpose() @ omega_proj @ Jl
 
         H[landmark_matrix_index:landmark_matrix_index+landmark_dim,
-          landmark_matrix_index:landmark_matrix_index+landmark_dim] += Jl.transpose() @ Jl
+          landmark_matrix_index:landmark_matrix_index+landmark_dim] += Jl.transpose() @ omega_proj @ Jl
 
         H[landmark_matrix_index:landmark_matrix_index+landmark_dim,
-          pose_matrix_index:pose_matrix_index+pose_dim] += Jl.transpose() @ Jr
+          pose_matrix_index:pose_matrix_index+pose_dim] += Jl.transpose() @ omega_proj @ Jr
 
-        b[pose_matrix_index:pose_matrix_index+pose_dim] += Jr.transpose() @ e
-        b[landmark_matrix_index:landmark_matrix_index+landmark_dim] += Jl.transpose() @ e
+        b[pose_matrix_index:pose_matrix_index+pose_dim] += Jr.transpose() @ omega_proj @ e
+        b[landmark_matrix_index:landmark_matrix_index+landmark_dim] += Jl.transpose() @ omega_proj @ e
 
     return H, b, chi_tot, num_inliers

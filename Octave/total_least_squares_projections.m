@@ -107,8 +107,59 @@ function [is_valid, e,Jr,Jl]=projectionErrorAndJacobian(Xr,Xl,z)
   Jr=Jp*K*Jwr;
   Jl=Jp*K*Jwl;
   is_valid=true;
-endfunction;
+endfunction
 
+function [XL_guess] = triangulate2(num_landmarks, num_poses, observations, land_apperances, XR)
+    XL_guess = zeros(3, num_landmarks)
+    D = zeros(2 * num_poses, 4*num_landmarks)
+    index_vec = zeros(1, num_landmarks)
+    cam = K * eye(3, 4) * inv(cam_transform)
+
+    for pose_num=1:num_poses
+      size(observations(pose_num))(2)
+        for landmark_observ=1:size(observations(pose_num))(2)
+
+            land_id = landmarkAssociation(observations(pose_num)(landmark_observ)(3), land_apperances)
+            x = observations(pose_num)(landmark_observ)(2)
+
+            if abs(x(1)) > 50 && abs(x(2)) > 50
+                P = cam * inv(XR(:, :,pose_num))
+
+                index = index_vec(0, land_id)
+
+                D(2 * index, 4*land_id:4*land_id+4) = x(0) * P(2,:) - P(0,:)
+                D(2 * index + 1, 4*land_id:4*land_id+4) = x(1) * P(2,:) - P(1,:)
+
+                index_vec(0, land_id) += 1
+              endif
+            endfor
+          endfor
+          
+
+    iter = 0
+    ids = {}#np.zeros([1, num_landmarks], dtype=int)
+    for landmark_num= 1:num_landmarks
+        index = index_vec(0, landmark_num)
+
+        A = D(0:2*index, 4*landmark_num:4*landmark_num+4)
+
+        _, b, vh = np.linalg.svd(A)
+
+        #if len(b) == 4:
+        point = [vh(3,0)/vh(3,3)  vh(3,1)/vh(3,3)  vh(3,2)/vh(3,3)]
+
+        if (abs(point(0)) > 12 && abs(point(1)) > 12 && abs(point(2)) > 3)
+            XL_guess(:, iter) = [0,0,0]
+        else
+            XL_guess(:, iter) = point
+          endif
+        ids(landmark_num) = iter
+        iter += 1
+      endfor
+
+
+    XL_guess = XL_guess(:,0:iter)
+  endfunction
 
 #linearizes the robot-landmark measurements
 #   XR: the initial robot poses (4x4xnum_poses: array of homogeneous matrices)
