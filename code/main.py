@@ -6,6 +6,7 @@ from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from helper import *
 from projections import triangulate
+from association import landmarkAssociation
 
 ################################## TRAJECTORY ##################################
 datFile = '../dataset/trajectory.dat'
@@ -168,16 +169,16 @@ fig1.suptitle("Landmark and Poses", fontsize=16)
 ax1 = fig1.add_subplot(221, projection='3d')
 ax1.plot(XL_true[0,:],XL_true[1,:],XL_true[2,:], 'o', mfc='none', color='b', markersize=3)
 ax1.plot(XL_triang[0, :], XL_triang[1, :], XL_triang[2, :], 'x', color='r', markersize=3)
-ax1.axis([-15,15,-15,15])
-ax1.set_zlim([-3,3])
-ax1.set_title("Landmark true and guess values", fontsize=10)
+# ax1.axis([-15,15,-15,15])
+# ax1.set_zlim([-3,3])
+ax1.set_title("Landmark ground truth and triangulation", fontsize=10)
 
 ax2 = fig1.add_subplot(222, projection='3d')
 ax2.plot(XL_true[0,:],XL_true[1,:],XL_true[2,:], 'o', mfc='none', color='b', markersize=3)
 ax2.plot(XL[0,:],XL[1,:],XL[2,:], 'x', color='r', markersize=3)
-ax2.axis([-15,15,-15,15])
-ax2.set_zlim([-3,3])
-ax2.set_title("Landmark true and estimated values", fontsize=10)
+# ax2.axis([-15,15,-15,15])
+# ax2.set_zlim([-3,3])
+ax2.set_title("Landmark ground truth and optimization", fontsize=10)
 
 # Estimated trajectory
 for i in range(num_poses):
@@ -187,13 +188,13 @@ ax3 = fig1.add_subplot(223)
 ax3.plot(traj_true[0,:],traj_true[1,:], 'o', mfc='none', color='b', markersize=3)
 ax3.plot(traj_guess[0,:],traj_guess[1,:], 'x', color='r', markersize=3)
 ax3.axis([-10,10,-10,10])
-ax3.set_title("Robot true and odometry values", fontsize=10)
+ax3.set_title("Robot ground truth and odometry values", fontsize=10)
 
 ax4 = fig1.add_subplot(224)
 ax4.plot(traj_true[0,:],traj_true[1,:], 'o', mfc='none', color='b', markersize=3)
 ax4.plot(traj_estimated[0,:],traj_estimated[1,:], 'x', color='r', markersize=3)
 ax4.axis([-10,10,-10,10])
-ax4.set_title("Robot true and estimated values", fontsize=10)
+ax4.set_title("Robot ground truth and optimization", fontsize=10)
 
 # Chi and inliers
 fig2 = plt.figure(2)
@@ -202,20 +203,37 @@ fig2.suptitle("Chi and Inliers", fontsize=16)
 
 ax3 = fig2.add_subplot(221)
 ax3.plot(chi_stats_r[0:iteration])
-ax3.set_title("Chi Poses", fontsize=10)
+ax3.set_title("Chi poses", fontsize=10)
 ax4 = fig2.add_subplot(222)
 ax4.plot(num_inliers_r[0:iteration])
-ax4.set_title("Inliers Poses", fontsize=10)
+ax4.set_title("Inliers poses", fontsize=10)
 
 ax5 = fig2.add_subplot(223)
 ax5.plot(chi_stats_p[0:iteration])
-ax5.set_title("Chi Projections", fontsize=10)
+ax5.set_title("Chi projections", fontsize=10)
 ax6 = fig2.add_subplot(224)
 ax6.plot(num_inliers_p[0:iteration])
-ax6.set_title("Inliers Projections", fontsize=10)
+ax6.set_title("Inliers projections", fontsize=10)
+
+# Chi and inliers
+fig3 = plt.figure(3)
+fig3.set_size_inches(16, 6)
+fig3.suptitle("Landmarks (without outliers)", fontsize=16)
+
+ax7 = fig3.add_subplot(121)
+ax7.plot(XL_true[0,:],XL_true[1,:], 'o', mfc='none', color='b', markersize=3)
+ax7.plot(XL_triang[0, :], XL_triang[1, :], 'x', color='r', markersize=3)
+ax7.set_title("Landmark ground truth and triangulation", fontsize=10)
+ax7.axis([-15,15,-15,15])
+ax8 = fig3.add_subplot(122)
+ax8.plot(XL_true[0,:],XL_true[1,:], 'o', mfc='none', color='b', markersize=3)
+ax8.plot(XL[0,:],XL[1,:], 'x', color='r', markersize=3)
+ax8.axis([-15,15,-15,15])
+ax8.set_title("Landmark ground truth and optimization", fontsize=10)
 
 # Save figures
 fig1.savefig("../images/landmark_and_pose.png", dpi=100)
 fig2.savefig("../images/chi_and_inliers.png", dpi=100)
+fig3.savefig("../images/landmarks_optimized.png", dpi=100)
 
 plt.show()
