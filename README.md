@@ -1,35 +1,23 @@
-Project 10 - Planar Monocular SLAM
+# Planar Monocular SLAM
 
-We provided a small simulator of a vacuum cleaner-ish robot that navigates in an environment
-collecting data from a monocular camera. The simulator can be used to generate other datasets.
+The goal of this project is to develop a SLAM system using Total Least Square algorithm to determine the trajectory of a robot moving in a given environment. This robot perceives the environment only using a stereo camera mounted on its base and its motion by the odometry sensor.
 
-We provided, though, a ready to use dataset. It is composed by the following files:
+Before the optimization, the information known is the odometry for the trajectory and the landmarks position estimated by triangulation (first column of figure below and the goal is to make the prediction match the ground truth values.
 
-- world.dat
-  It contains information about the map.
-  Every row contains:
-   LANDMARK_ID POSITION APPEARANCE
+The program was written in Python and it succeeds in estimating the right trajectory of the robot and also most of the landmarks, with the exception of some that were bad initialized due to lack of information collected by the camera.
 
-- camera.dat
-  It contains information about the camera used to gather data:
-  - camera matrix
-  - cam_transform: pose of the camera w.r.t. robot
-  - z_near/z_far how close/far the camera can perceive stuff
-  - width/height of images
+<p align="center">
+<img src="images/landmark_and_pose.png" width="800"/></br>
+<i>Landmark and poses before and after optimization</i>
+</p>
 
-- trajectory.dat
-  pose: POSE_ID ODOMETRY_POSE GROUND_TRUTH_POSE
-  the ODOMETRY_POSE is obtained by adding Gaussian Noise (0; 0.001) to the actual robot commands
+<p align="center">
+<img src="images/landmarks_optimized.png" width="800"/></br>
+<i>Landmark before and after optimization</i>
+</p>
 
-- meas-XXXX.dat
-  Every measurement contains a sequence number, ground truth (of the robot) and odometry pose and measurement information:
-  - point POINT_ID_CURRENT_MESUREMENT ACTUAL_POINT_ID IMAGE_POINT APPEARANCE
+## How to run
 
-  The Image_Point represents the pair [col;row] where the landmark is observed in the image
-  The Appearance is represented by a Vector of 10 float number. Can be used to perform data association (see HBST)
+To run this project is necessary to create the environment using the file `environment.yml` and run the following command.
 
-Expected Output:
- - 1. Visual Aided Odometry:
-   - instantiate the landmarks using the odometry, and perform SLAM in bearing-only fashion
- - 2. Bundle Adjustment:
-   - embed the obtained measures in a full bundle adjustment pipeline (see total_least_squares)
+`python main.py`
