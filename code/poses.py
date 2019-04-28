@@ -17,7 +17,9 @@ from numpy.linalg import inv
 def poseErrorAndJacobian(Xi,Xj,Z):
     Ri = Xi[0:3, 0:3]
     Rj = Xj[0:3, 0:3]
+    ti = Xi[0:3, 3]
     tj = Xj[0:3, 3]
+    tij = tj - ti
     Ri_transpose = Ri.transpose()
 
     # Partial derivatives - dh/deltaa_i
@@ -37,7 +39,10 @@ def poseErrorAndJacobian(Xi,Xj,Z):
     Ji=-Jj
 
     # Pose error
-    Z_hat = inv(Xi) @ Xj
+    Z_hat = np.eye(4)
+    Z_hat[0:3, 0:3] = Ri_transpose @ Rj
+    Z_hat[0:3, [3]] = (Ri_transpose @ tij).reshape([3, 1])
+    #Z_hat = inv(Xi) @ Xj
     pose_error = flattenIsometryByColumns(Z_hat - Z)
 
     return pose_error, Ji, Jj

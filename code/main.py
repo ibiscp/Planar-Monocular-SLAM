@@ -215,7 +215,7 @@ ax6.plot(num_inliers_p[0:iteration])
 ax6.set_title("Inliers Projections", fontsize=10)
 
 # Save figures
-fig1.savefig("../images/landmark_and_pose.png", dpi=500)
-fig2.savefig("../images/chi_and_inliers.png", dpi=500)
+fig1.savefig("../images/landmark_and_pose.png", dpi=100)
+fig2.savefig("../images/chi_and_inliers.png", dpi=100)
 
 plt.show()
