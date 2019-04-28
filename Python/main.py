@@ -1,25 +1,11 @@
-## import matplotlib.pyplot as plt
-import numpy as np
-import math
 import glob
-from geometry_helpers_3d import v2t
 from total_least_squares import *
-
-import matplotlib as mpl
-from mpl_toolkits.mplot3d import Axes3D
-import numpy as np
 import matplotlib
 matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
-from total_least_squares_landmarks import landmarkAssociation
-from total_least_squares_projections import triangulate
-
-projection_dim = 2
-
-damping = 0.1
-kernel_threshold_proj = 2000
-kernel_threshold_pose = 0.01
-num_iterations = 50
+from mpl_toolkits.mplot3d import Axes3D
+from helper import *
+from projections import triangulate
 
 ################################## TRAJECTORY ##################################
 datFile = '../dataset/trajectory.dat'
@@ -41,7 +27,7 @@ num_poses = len(trajectory)
 
 # Generate poses homogeneous matrices
 XR_true = np.zeros([4, 4, num_poses])
-XR_guess = np.zeros([4, 4, num_poses])
+XR_odom = np.zeros([4, 4, num_poses])
 traj_true = np.zeros([3, num_poses])
 traj_guess = np.zeros([3, num_poses])
 traj_estimated = np.zeros([3, num_poses])
@@ -55,7 +41,7 @@ for i in range(num_poses):
     # Guess
     pose = trajectory[i][1]
     ug = np.array([pose[0], pose[1], 0, 0, 0, pose[2]])
-    XR_guess[:,:,i] = v2t(ug)
+    XR_odom[:, :, i] = v2t(ug)
     traj_guess[:, i] = ug[0:3]
 
 ################################## LANDMARKS ###################################
@@ -117,33 +103,7 @@ for f in files:
     observations.append(landmark_observation)
 
 ########################### LANDMARKS TRIANGULATION ############################
-landmark_ids, XL_guess = triangulate(num_landmarks, num_poses, observations, land_apperances, XR_guess)
-
-# apply a perturbation to each landmark
-# pert_deviation=-0.1
-# XL_guess = np.copy(XL_true)
-# # dXl=(np.random.rand(landmark_dim, num_landmarks)-0.5)*pert_deviation
-# dXl = XL_guess * pert_deviation
-# XL_guess+=dXl
-
-num_landmarks = XL_guess.shape[1]
-
-############################ LANDMARK MEASUREMENTS #############################
-# Each pose observes each landmark
-num_landmark_measurements=num_poses*num_landmarks
-Zl = np.zeros([landmark_dim, num_landmark_measurements])
-landmark_associations = np.zeros([2, num_landmark_measurements]).astype(int)
-
-measurement_num = 0
-for pose_num in range(num_poses):
-    # TODO use XR_guess
-    Xr = np.linalg.inv(XR_guess[:,:,pose_num])
-    for landmark_num in range(num_landmarks):
-        # TODO use XL_guess
-        Xl=XL_guess[:,landmark_num]
-        landmark_associations[:,measurement_num] = [pose_num, landmark_num]
-        Zl[:,measurement_num] = Xr[0:3,0:3] @ Xl + Xr[0:3,3]
-        measurement_num += 1
+landmark_ids, XL_triang, num_landmarks = triangulate(num_landmarks, num_poses, observations, land_apperances, XR_odom)
 
 ########################### PROJECTION MEASUREMENTS ############################
 Zp = np.zeros([projection_dim, num_landmark_measurements])
@@ -174,103 +134,88 @@ pose_associations = np.zeros([2, num_pose_measurements]).astype(int)
 
 measurement_num = 0
 for pose_num in range(num_poses-1):
-    Xi=XR_guess[:, :, pose_num]
-    Xj=XR_guess[:, :, pose_num+1]
+    Xi= XR_odom[:, :, pose_num]
+    Xj= XR_odom[:, :, pose_num + 1]
     pose_associations[:, measurement_num] = [pose_num, pose_num+1]
     Zr[:, :, measurement_num] = np.linalg.inv(Xi) @ Xj
     measurement_num += 1
 
 ################################# CALL SOLVER  #################################
+# Parameters
+damping = 1e-4
+kernel_threshold_proj = 5000
+kernel_threshold_pose = 0.01
+max_iterations = 30
 
-# Uncomment the following to suppress pose-landmark measurements
-Zl = np.zeros([3,0])
-
-# Uncomment the following to suppress pose-landmark-projection measurements
-# num_landmarks = 0
-# Zp = np.zeros([3,0])
-
-# Uncomment the following to suppress pose-pose measurements
-#  Zr = np.zeros([4,4,0])
-
-# print(np.sum(XR_guess))
-# print(np.sum(XL_guess))
-# print(np.sum(Zl))
-# print(landmark_associations.shape)
-# print(np.sum(Zp))
-# print(projection_associations.shape)
-# print(np.sum(Zr))
-# print(pose_associations.shape)
-# print(num_poses)
-# print(num_landmarks)
-# print(num_iterations)
-# print(damping)
-# print(kernel_threshold_proj)
-# print(kernel_threshold_pose)
-
-
-XR, XL, chi_stats_l, num_inliers_l, chi_stats_p, num_inliers_p, chi_stats_r, num_inliers_r, H, b =\
-    doTotalLS(XR_guess, np.copy(XL_guess),
-              Zl, landmark_associations,
+XR, XL, chi_stats_p, num_inliers_p, chi_stats_r, num_inliers_r, H, b, iteration =\
+    doTotalLS(XR_odom, np.copy(XL_triang),
               Zp, projection_associations,
               Zr, pose_associations,
               num_poses,
               num_landmarks,
-              num_iterations,
+              max_iterations,
               damping,
               kernel_threshold_proj,
               kernel_threshold_pose)
 
-fig = plt.figure(1)
-fig.suptitle("Landmark and poses", fontsize=16)
+################################# CREATE GRAPHS  #################################
 
-ax1 = fig.add_subplot(221, projection='3d')
-ax1.plot(XL_true[0,:],XL_true[1,:],XL_true[2,:], 'o', mfc='none', color='b')
-ax1.plot(XL_guess[0,:],XL_guess[1,:],XL_guess[2,:], 'x', color='r')
+# Landmark and poses
+fig1 = plt.figure(1)
+fig1.set_size_inches(16, 12)
+fig1.suptitle("Landmark and Poses", fontsize=16)
+
+ax1 = fig1.add_subplot(221, projection='3d')
+ax1.plot(XL_true[0,:],XL_true[1,:],XL_true[2,:], 'o', mfc='none', color='b', markersize=3)
+ax1.plot(XL_triang[0, :], XL_triang[1, :], XL_triang[2, :], 'x', color='r', markersize=3)
+ax1.axis([-15,15,-15,15])
+ax1.set_zlim([-3,3])
 ax1.set_title("Landmark true and guess values", fontsize=10)
 
-ax2 = fig.add_subplot(222, projection='3d')
-ax2.plot(XL_true[0,:],XL_true[1,:],XL_true[2,:], 'o', mfc='none', color='b')
-ax2.plot(XL[0,:],XL[1,:],XL[2,:], 'x', color='r')
+ax2 = fig1.add_subplot(222, projection='3d')
+ax2.plot(XL_true[0,:],XL_true[1,:],XL_true[2,:], 'o', mfc='none', color='b', markersize=3)
+ax2.plot(XL[0,:],XL[1,:],XL[2,:], 'x', color='r', markersize=3)
+ax2.axis([-15,15,-15,15])
+ax2.set_zlim([-3,3])
 ax2.set_title("Landmark true and estimated values", fontsize=10)
 
 # Estimated trajectory
 for i in range(num_poses):
     traj_estimated[:,i] = t2v(XR[:,:,i])[0:3]
 
-ax3 = fig.add_subplot(223, projection='3d')
-ax3.plot(traj_true[0,:],traj_true[1,:],traj_true[2,:], 'o', mfc='none', color='b')
-ax3.plot(traj_guess[0,:],traj_guess[1,:],traj_guess[2,:], 'x', color='r')
-ax3.set_zlim([-0.04,0.04])
+ax3 = fig1.add_subplot(223)
+ax3.plot(traj_true[0,:],traj_true[1,:], 'o', mfc='none', color='b', markersize=3)
+ax3.plot(traj_guess[0,:],traj_guess[1,:], 'x', color='r', markersize=3)
+ax3.axis([-10,10,-10,10])
 ax3.set_title("Robot true and odometry values", fontsize=10)
 
-ax4 = fig.add_subplot(224, projection='3d')
-ax4.plot(traj_true[0,:],traj_true[1,:],traj_true[2,:], 'o', mfc='none', color='b')
-ax4.plot(traj_estimated[0,:],traj_estimated[1,:],traj_estimated[2,:], 'x', color='r')
-ax4.set_zlim([-0.04,0.04])
+ax4 = fig1.add_subplot(224)
+ax4.plot(traj_true[0,:],traj_true[1,:], 'o', mfc='none', color='b', markersize=3)
+ax4.plot(traj_estimated[0,:],traj_estimated[1,:], 'x', color='r', markersize=3)
+ax4.axis([-10,10,-10,10])
 ax4.set_title("Robot true and estimated values", fontsize=10)
 
-fig = plt.figure(2)
-fig.suptitle("Error and inliners", fontsize=16)
+# Chi and inliers
+fig2 = plt.figure(2)
+fig2.set_size_inches(16, 12)
+fig2.suptitle("Chi and Inliers", fontsize=16)
 
-ax1 = fig.add_subplot(321)
-ax1.plot(chi_stats_l)
-ax1.set_title("Chi Landmarks", fontsize=10)
-ax2 = fig.add_subplot(322)
-ax2.plot(num_inliers_l)
-ax2.set_title("Inliers Landmarks", fontsize=10)
-
-ax3 = fig.add_subplot(323)
-ax3.plot(chi_stats_r)
+ax3 = fig2.add_subplot(221)
+ax3.plot(chi_stats_r[0:iteration])
 ax3.set_title("Chi Poses", fontsize=10)
-ax4 = fig.add_subplot(324)
-ax4.plot(num_inliers_r)
+ax4 = fig2.add_subplot(222)
+ax4.plot(num_inliers_r[0:iteration])
 ax4.set_title("Inliers Poses", fontsize=10)
 
-ax5 = fig.add_subplot(325)
-ax5.plot(chi_stats_p)
+ax5 = fig2.add_subplot(223)
+ax5.plot(chi_stats_p[0:iteration])
 ax5.set_title("Chi Projections", fontsize=10)
-ax6 = fig.add_subplot(326)
-ax6.plot(num_inliers_p)
+ax6 = fig2.add_subplot(224)
+ax6.plot(num_inliers_p[0:iteration])
 ax6.set_title("Inliers Projections", fontsize=10)
+
+# Save figures
+fig1.savefig("../images/landmark_and_pose.png", dpi=1000)
+fig2.savefig("../images/chi_and_inliers.png", dpi=1000)
 
 plt.show()
